@@ -1,0 +1,245 @@
+---
+title: "MiniExperiment"
+author: "Christine Slaughter"
+date: "10/17/2016"
+output: pdf_document
+---
+
+Loading Packages
+```{r}
+library("DeclareDesign")
+library("dplyr")
+library("ggplot2")
+library(lmtest) 
+library(sandwich) 
+
+
+```
+
+Introduction: What is the theory being tested? 
+
+This mini-experiment will examine the effect of location on mold-growth in white sliced bread. Conventional shelf-life of bread is between 7-10 days after it is initially placed to be sold. From there, the exact number of days that the bread is without mold varies. While stored at home, the general wisdom is that bread remains in the kitchen and thus to the extent to which the shelf life can be extended would most likely occur in this location. Although, many individuals who consume bread do not leave it one location for the entire duration of its use. For this experiment, I aim to exploit these conditions to explore under what circumstances does bread maintain the greatest length of freshness. 
+Bread mold is a simple fungus that alters the surface and texture of the bread into a fuzzy green and white color. There are different species of mold, though the most common is known as black mold and it appears in a dark green or black color. This mold is damaging to the human digestive system if consumed.  Although the spores are ever present in the air around us, spores that appear on bread are a productive of the mature fungi and moisture that penetrate the bread surface. As spores are ubiquitous in nature, eliminating mold spores is unfeasible in order to prevent mold growth. 
+This process and growth rate depends on several important factors such as appropriate temperatures, available mold spores and mold food, and considerable moisture. Mold does not only grow on bread. Any organic substance has the appropriate nutrients to produce mold growth. Further, any surface is a laboratory or suitable substance to support the growth of some molds. While the common materials are kitchen counter-tops, stainless steel, and other metal surfaces. As common as these surfaces are in a kitchen, it is impossible to fully eliminate the mold food which breeds mold on the surfaces of organic materials. More so, the appropriate room temperature is consistent across spaces and the temperature alone would be difficult, if not impossible to randomized in a shared apartment space. Yet, the moisture in the air varies slightly from the kitchen to the common living spaces. The kitchen environment is more sterile than the common living spaces for it is more regularly cleaned and has more surfaced areas that are routinely sanitized. The living space, for instance, does not receive the same maintenance. Regularly, the carpets are vacuumed and surfaces are dusted, yet there is not the same amount surface areas sterilized by cleaning products. This leads us to believe that differences exist in the mold-environment. 
+
+
+Design: What is the experimental design, and how will it asses the theory?
+The experimental design is simple. For this experiment, cheap white slice bread from a local Ralphs is used, as the slices are often similar in size, weight and thickness. The bread was purchased and placed before the use-by-date to ensure that the spores could develop before the experiment was removed from the field. The outcome measure, the percentage of the surface area covered by bold should be only affected by the treatment, the location of the bread, given the randomization of where each slice of bread is placed. This treatment was independent of any characteristics of the bread. The loaf included 30 slices of bread, which allowed for simple random assignment. The simple random assignment will also ensure that an equal number of slices are assigned to all groups. This equal assignment increases the statistical power and reliability of the estimates.  Given the differences between the end slices and the remaining slices of the bread, a second variable was created to differentiate between slices that were completely white and the end slices which contain a greater amount of crust. Give the change in the surface area of the white space of the bread, it is expected that these slices will have a greater coverage of mold as compared to the non-end  slices.  This difference was recognized in the potential outcomes function where the presence of an end slice significantly impacts the expected amount of mold growth. Lastly, the effect of the location was only present for units in the treatment condition. This assumes that the only intervention is through out treatment and not another mechanisms unaccounted for in this model. For the treatment, in expectation, being assigned to Further, the experimental design account for their being mold growth in both the treatment and control condition. Given the length of time that the experiment is in the field, mold should begin to accumulate on both regardless of their location. Yet, the intervention of altering the location from the kitchen to the common living spaces, should produce a greater percentage of mold on the surface area of the bread. This assesses the theory through accounting for what previous research finds evidence of in contributing to mold growth. 
+
+generating the data: 
+```{r Generating the Data}
+
+slice <- c(1:30)
+head(slice)
+bread <- as.data.frame(slice)
+bread$endslice <- ifelse(bread$slice > 1, 
+                          c("0"), c("1")) 
+bread$endslice[bread$slice > 29 ] <- 1
+
+# blocking on the slice being an endslice?  
+
+
+```
+
+
+Setting up the randominzation: 
+
+Simple Random Assignment - With complete random assingment, we are assigning each unit equally to the treatment and the control condition. This approach is best, for we have greater power of the ATE with the equal amount assigned across groups.  
+```{r Setting Up the Randominzation}
+
+```
+
+Population
+```{r Defining the Population}
+my_population <- function(size) {data.frame(bread = rnorm(size))}
+
+#population    <- declare_population(custom_population_function = my_population, size = 30)
+
+population <- declare_population(size = 30, options = list(bread = bread))
+```
+
+
+
+Setting up potential outcomes: 
+
+```{r Setting Up Potential Outcomes}
+# defining potential outcomes
+#bread$Y0 <- 5 + 2*(bread$endslice == 1) + runif(nrow(bread)) #Potential outcome under control (kitchen) condition 
+#bread$Y1 <- 5 + 2*(bread$endslice == 1) + as.numeric(bread$Z == "Z1") + runif(nrow(bread))  #Potential outcome under treatment (living room) condition 
+#bread$sample = sample((1:N)%%2) # Treatment: 1 if treated, 0 otherwise 
+#bread$Y = D*Y1 + (1-D)*Y0 # Outcome in population 
+#samp = data.frame(bread$D,bread$Y) 
+
+bread$Z <- c("Z0", "Z1")
+
+# potential outcomes function 
+my_potential_outcomes <- function(data) { with(data (data$Z == "Z1") * 5  + 2*(data$endslice == 1)  + 0.5 + runif(nrow(data))) }
+
+
+# defining potential outcomes
+my_potential_outcomes <- function(data) { 
+Y0 <- with(bread, 5 + 2*(bread$endslice == 1) + runif(nrow(bread))) #Potential outcome under control (kitchen) condition 
+Y1 <- with(bread, 5 + 2*(bread$endslice == 1) + as.numeric(bread$Z == "Z1") + runif(nrow(bread))) #Potential outcome under treatment (living room) condition 
+            return("Y") }
+my_potential_outcomes(bread)
+
+
+
+# declaring the potential outcomes 
+potential_outcomes <- declare_potential_outcomes(condition_names = c("Z0", "Z1"), potential_outcomes_function = my_potential_outcomes, 
+outcome_variable_name = "Y")
+ 
+# applying the potenial outcomes function to the data 
+bread$Y<- NULL
+bread$Y <- c(rep(0))
+length(bread$Y)
+```
+
+Assignment Procedure: 
+```{r Assignment Procedure}
+my_assignment  <- function(data) { N <- nrow(data); sample(c("Z0", "Z1"), replace = F) }
+
+assignment <- declare_assignment(custom_assignment_function = my_assignment, potential_outcomes = potential_outcomes)
+
+
+bread$Z <- my_assignment(bread)
+
+#ensuring that lengths are the same over conditions: 
+length(bread$Y0[bread$Z == "Z0"])
+length(bread$Y1[bread$Z == "Z1"])
+
+```
+
+Sampling Procdeure: 
+```{r Sampling Procedure}
+# We do not need a sampling procedure since the population is the same as the sample -- we are using data that we have
+my_sampling <- function(data) {N <- nrow(data); n <- floor(N/2); sample(rep(c(0, 1), each = N-n), N) }
+
+sampling <- declare_sampling(sampling = FALSE)
+
+bread$sample <- my_sampling(bread)
+
+
+```
+
+
+
+
+Estimand: 
+```{r Estimand}
+
+# estimand <- function(data) { with(data, mean(data$Y_Z_Z1 - data$Y_Z_Z0)) } # Here you would have to add your own custom function, since the naming conventions are not the same as DD. 
+
+estimand <- function(data) { mean(bread$Y[bread$Z=="Z1"]) - mean(bread$Y[bread$Z =="Z0"]) }
+
+estimand_ATE <- declare_estimand( estimand_function = estimand,
+    potential_outcomes = potential_outcomes)
+estimand(bread)
+```
+
+
+Calculate the ATE: 
+```{r}
+# Calculating the PATE: 
+PATE <- mean(bread$Y[bread$Z =="Z1"]) - mean(bread$Y[bread$Z =="Z0"])
+PATE
+# Calculating the SATE: 
+SATE <- mean(bread$Y[bread$sample == "1"]) -  mean(bread$Y[bread$sample == "0"]) 
+SATE
+# SATE in Expectation 
+EX_SATE <- mean(bread$Y1[bread$Z =="Z1"]) - mean(bread$Y[bread$Z =="Z0"])
+EX_SATE
+#plot(EX_SATE,SATE,xmin = min(), )
+
+# Since the PATE and the SATE are the same (all units were sampled, then, in exepection these should be similar (other than accounting for noise) or the same )
+# What was the expected ATE 
+
+ATE <- mean(bread$Y1[bread$Z == "Z1"]) - mean(bread$Y0[bread$Z == "Z0"])
+ATE
+
+
+
+
+```
+
+
+
+
+Results: What did the experiment show? 
+The Y observed in this experiment is null. With null findings, this experiment showed the inability of the change in location alone to produce a significant effect on mold growth. The null finding fails to reject the null hypothesis that there is no effect of location on mold growth in white sliced bread.  Even with randomized assignment of slices to the either location, the kitchen or the living space, there was no mold growth on the bread. This detracts from the assumptions made in the potential outcomes function that there would be a percentage of mold withstanding either condition. More significantly, this finding alone is contrary to the existing theories surrounding mold growth. As the experiment was placed in the field early October, a part of the potential outcomes function assumed that mold growth would spark in both the treatment and control condition. With this not being the case, the theory of mold growth on bread must be revisited. With null findings, additional inferences can be drawn from the quality of the bread and its ability to spoil over time. , the experiment shows that another factor maybe impacting the growth of mold on white slice bread: the brand. Though previous research suggested to utilize cheap white bread for the experiment, we know little about if the bread type contributed to the lack of growth of mold. It is unclear whether the lack of any growth of mold was caused by chance and uncertainty in the randomly assignment of locations or due to an unbalanced characteristic within the bread itself. A null finding shows that the intervention of location is not substantial enough to generate the growth of mold. 
+
+
+```{r}
+plot(bread$Y0, bread$Y, main = "Observed Y & Control Potential Outcomes",  ylab="Y", xlab= "control potential outcomes (Y0)")
+length(bread$Y)
+length(bread$Y0) 
+# here it says that the lengths are differnt -- not sure why -- when they are both 30. 
+``` 
+
+This shows that  that observed Y is not the same as the predicted Y in the control condition of the potential outcomes function. Here we see the distribtuion of potential outcomes which are far from the observed outcomes. 
+
+```{r}
+plot(bread$Y1, bread$Y, main = "Observed Y & Treatment Potential Outcomes", ylab="Y", xlab="treatment potential outcomes (Y1)")
+
+``` 
+This shows that  that observed Y is not the same as the predicted Y in the treatment  condition of the potential outcomes function. 
+
+
+
+
+
+```{r The Estimates Function}
+my_estimates   <- function(data) { 
+  est      <- mean(data$Y[data$Z == "Z1"]) - mean(data$Y[data$Z == "Z0"])
+  se       <- sqrt(var(data$Y[data$Z == "Z1"])/sum(data$Z == "Z1") + var(data$Y[data$Z == "Z0"])/sum(data$Z == "Z0"))
+  df       <- nrow(data) - 2
+  p        <- 2 * pt(abs(est/se), df = df, lower.tail = FALSE)
+  ci_lower <- est - 1.96*se
+  ci_upper <- est + 1.96*se
+  data.frame(estimate_label = "diff-in-means",
+             est = est, se = se, p = p, 
+             ci_lower = ci_lower, ci_upper = ci_upper, df = df,
+             stringsAsFactors = FALSE)
+}
+
+estimator      <- declare_estimator(estimates = my_estimates, estimand = estimand_ATE)
+
+
+```
+
+Formally Declaring the Design: 
+```{r Declaring thge Design}
+
+my_design <- declare_design(population = population, 
+    sampling = sampling, 
+    assignment = assignment, 
+    estimator = estimator,
+    potential_outcomes = potential_outcomes, 
+    label = "simple_design")
+
+```
+
+Diagnosing the design: 
+```{r Diagnosing the Design}
+
+diagnosis <- diagnose_design(design = my_design, population_draws = 5, 
+    sample_draws = 5)
+
+diagnosis <- diagnose_design(design = my_design)
+diagnosis
+
+
+summary((diagnosis), digits = 3)
+
+
+#instead, conducted a T-test
+t.test(bread$Y ~ bread$Z) #since we observe a y that was not in the potential outcomes function, we will not find this useful. The effect size is 0 of the treatment -- which means we fail to reject the null. 
+
+
+```
+
+Discussion: What are the implication of the experiment for the theory? 
+ 	The null findings show that the location of the bread does not generate mold growth. This is contrary to previous theories of mold growth that point to confounding environment that that breed mold. The implications of this experiment are that the location alone cannot produce an environment susceptible to mold growth on bread, not even on the end slices of bread. Null findings also fail to reject the null hypothesis that there is no effect of location on mold growth in bread. Future research on this topic should explore alternative causal pathways to mold growth beyond the location that it is placed.   Furthermore, future studies on this topic should introduce and balance on observed covariates across different bread types. To continue to understand the role of location in mold bread growth, more research is needed. 
+One useful implication of the experiment for this theory is the relative usefulness of the designs. Below are the results from the diagnosis of the experimental design of this project. As evident with the null finding, the power of the design is above the conventional level of .80. Yet, with a null finding, there is a large standard error and standard deviation. Further this experiment produced a relatively unbiased estimate of the ATE. As expected, the type S rate reflects the inability of this experiment to produce the correct sign for the true effect.  With the DeclareDesign research diagnosis, more can be extrapolated from the null finding from the experiment to access the overall quality of the experimental design. 
+
+
